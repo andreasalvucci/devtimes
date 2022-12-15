@@ -1,10 +1,16 @@
-TOKEN = "5771315363:AAEPZk_zKMJBZ4AmCMxNxVoPjuXF-wPCeaA"
+
 from bs4 import BeautifulSoup
 import requests
 import pandas as pd
 import numpy as np
 import telegram
+from dotenv import load_dotenv
+import os
 from telegram.ext import Updater, CommandHandler, ConversationHandler, MessageHandler, Filters
+
+load_dotenv()
+TOKEN = os.environ.get("TOKEN_TELEGRAM_DEVTIMES")
+print(TOKEN)
 
 url = 'https://www.digitaltruth.com/devchart.php'
 response = requests.get(url)
