@@ -5,8 +5,11 @@ import pandas as pd
 import numpy as np
 import telegram
 from dotenv import load_dotenv
+import logging
 import os
 from telegram.ext import Updater, CommandHandler, ConversationHandler, MessageHandler, Filters
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.ext import  CallbackQueryHandler, CommandHandler, ContextTypes
 
 load_dotenv()
 TOKEN = os.environ.get("TOKEN_TELEGRAM_DEVTIMES")
@@ -17,6 +20,13 @@ response = requests.get(url)
 soup = BeautifulSoup(response.text, 'html.parser')
 film_options = soup.find_all('option', attrs={'value': True})
 film_names = [option.text for option in film_options]
+logging.basicConfig(
+
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+
+)
+
+logger = logging.getLogger(__name__)
 
 
 def get_development_times(film, developer):
@@ -56,53 +66,39 @@ def get_all_possible_dilutions(dataframe):
 def filter_by_dilution(dataframe, dilution,type_of_film):
     return dataframe[dataframe["dilution"]==dilution][type_of_film]
 
-bot = telegram.Bot(token=TOKEN)
-ERROR, ASKING_FOR_FILM, ASKING_FOR_DEVELOPER, ASKING_FOR_DILUTION = range(4)
-
 def start(update, context):
-    update.message.reply_text('Hello! I am a development time calculator. Please tell me the name of the film you want to use.')
-    return ASKING_FOR_FILM
+    film_name_keyboard = [
+        [telegram.KeyboardButton('35mm'), telegram.KeyboardButton('120')]
+    ]
+    film_name_markup = telegram.ReplyKeyboardMarkup(film_name_keyboard, one_time_keyboard=True)
+    context.bot.send_message(chat_id=update.effective_chat.id, text="What type of film are you developing?", reply_markup=film_name_markup)
 
-def film_name(update, context):
-    context.user_data['film'] = update.message.text
-    update.message.reply_text('Thank you. Now please tell me the name of the developer you want to use.')
-    return ASKING_FOR_DEVELOPER
+def film_type(update, context):
+    film_type = update.message.text
+    developer_name_keyboard = [
+        [telegram.KeyboardButton('Ilford ID-11'), telegram.KeyboardButton('Kodak D-76')],
+        [telegram.KeyboardButton('Rodinal'), telegram.KeyboardButton('Tetenal Colortec C-41')]
+    ]
+    developer_name_markup = telegram.ReplyKeyboardMarkup(developer_name_keyboard, one_time_keyboard=True)
+    context.bot.send_message(chat_id=update.effective_chat.id, text="Which developer are you using?", reply_markup=developer_name_markup)
 
 def developer_name(update, context):
-    context.user_data['developer'] = update.message.text
-    update.message.reply_text('Thank you. Now please tell me the dilution you want to use.')
-    return ASKING_FOR_DILUTION
+    developer_name = update.message.text
+    dilution_keyboard = [
+        [telegram.InlineKeyboardButton('1+1', callback_data='1+1'), telegram.InlineKeyboardButton('1+2', callback_data='1+2')],
+        [telegram.InlineKeyboardButton('1+3', callback_data='1+3'), telegram.InlineKeyboardButton('1+4', callback_data='1+4')]
+    ]
+    dilution_markup = telegram.InlineKeyboardMarkup(dilution_keyboard)
+    context.bot.send_message(chat_id=update.effective_chat.id, text="What is the dilution of your developer?", reply_markup=dilution_markup)
 
 def dilution(update, context):
-    context.user_data['dilution'] = update.message.text
-    film = context.user_data['film']
-    developer = context.user_data['developer']
-    dilution = context.user_data['dilution']
-    list_of_times = get_development_times(film, developer)
-    times = filter_by_dilution(list_of_times,dilution,"time_35")
-    update.message.reply_text("Trovato il tempo per il 35mm")
-    return ConversationHandler.END
-
-def cancel(update, context):
-    update.message.reply_text('Cancelling the conversation.')
-    return ConversationHandler.END
-
-def error(update, context):
-    update.message.reply_text('Errore, riprova')
-    return ASKING_FOR_FILM
-
-conv_handler = ConversationHandler(
-    entry_points=[CommandHandler('start', start)],
-    states={
-        ERROR: [MessageHandler(Filters.text,error)],
-        ASKING_FOR_FILM: [MessageHandler(Filters.text, film_name)],
-        ASKING_FOR_DEVELOPER: [MessageHandler(Filters.text, developer_name)],
-        ASKING_FOR_DILUTION: [MessageHandler(Filters.text, dilution)]
-    },
-    fallbacks=[CommandHandler('cancel', cancel)]
-)
+    query = update.callback_query
+    dilution = query.data
+    context.bot.send_message(chat_id=query.message.chat_id, text="Thank you for the information. Based on your inputs, the developing time for your film is X minutes.")
 
 updater = Updater(token=TOKEN, use_context=True)
-dispatcher = updater.dispatcher
-dispatcher.add_handler(conv_handler)
+
+updater.dispatcher.add_handler(CommandHandler('start', start))
+updater.dispatcher.add_handler(MessageHandler(Filters.text, film_type))
+updater.dispatcher.add_handler(MessageHandler(Filters.text, developer_name))
 updater.start_polling()
