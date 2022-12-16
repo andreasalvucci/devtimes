@@ -80,6 +80,9 @@ def filter_by_dilution(dataframe, dilution,type_of_film):
     return dataframe[dataframe["dilution"]==dilution][type_of_film]
 
 def start(update, context):
+    update.message.reply_text("Hello, start developing by typing the /develop command!")
+
+def develop(update, context):
     film_name_keyboard = [
         [telegram.KeyboardButton('35'), telegram.KeyboardButton('120'),telegram.KeyboardButton('sheet')]
     ]
@@ -173,7 +176,7 @@ def iso(update, context):
 updater = Updater(token=TOKEN, use_context=True)
 
 conv_handler = ConversationHandler(
-        entry_points=[CommandHandler('start', start)],
+        entry_points=[CommandHandler('start', start), CommandHandler('develop', develop)],
         states={
             FILM_FORMAT: [MessageHandler(Filters.text, film_type)],
             FILM_NAME: [MessageHandler(Filters.text,film_name)],
